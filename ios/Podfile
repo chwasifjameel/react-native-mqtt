@@ -39,6 +39,8 @@ target 'ReactNativeMQTT' do
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )
 
+  pod 'MQTTClient'
+  
   target 'ReactNativeMQTTTests' do
     inherit! :complete
     # Pods for testing

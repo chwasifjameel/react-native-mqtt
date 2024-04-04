@@ -5,93 +5,103 @@
  * @format
  */
 
-import React from 'react';
-import type {PropsWithChildren} from 'react';
+import React, {useEffect, useState} from 'react';
+import {
+  MQTT_USER,
+  MQTT_PASSWORD,
+  CLIENT_ID,
+  PROTOCOL,
+  HOST,
+  PORT,
+  URI,
+} from '@env';
+
 import {
   SafeAreaView,
-  ScrollView,
+  Button,
+  TextInput,
   StatusBar,
   StyleSheet,
   Text,
   useColorScheme,
   View,
 } from 'react-native';
+import MQTT, {IMqttClient} from 'sp-react-native-mqtt';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
-
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
-
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
+import {Colors} from 'react-native/Libraries/NewAppScreen';
 
 function App(): React.JSX.Element {
+  const [inputValue, setInputValue] = useState('');
+  const [client, setClient] = useState<IMqttClient | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+
   const isDarkMode = useColorScheme() === 'dark';
 
   const backgroundStyle = {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
   };
 
+  const submit = () => {
+    client?.publish('/hello', inputValue, 0, false);
+    setInputValue('');
+  };
+
+  useEffect(() => {
+    MQTT.createClient({
+      user: MQTT_USER,
+      pass: MQTT_PASSWORD,
+      clientId: CLIENT_ID || '',
+      protocol: (PROTOCOL as 'mqtt' | 'tcp' | 'wss' | 'mqtts' | 'ws') || 'mqtt',
+      host: HOST,
+      port: PORT ? parseInt(PORT) : 1883,
+      keepalive: 60,
+      clean: true,
+      tls: false,
+      auth: true,
+      uri: URI,
+    })
+      .then(async function (client) {
+        client.on('closed', function (err) {
+          console.log('mqtt.event.closed-_--_--_--_--_--_-', err);
+        });
+
+        client.on('error', function (msg) {
+          console.log('mqtt.event.error ====>', msg);
+        });
+
+        client.on('message', function (msg) {
+          console.log('mqtt.event.message -+-+-+-+-+-+', msg);
+        });
+
+        client.on('connect', function () {
+          setIsConnected(true);
+          setClient(client);
+          client.subscribe('/hello', 0);
+          client.publish('/hello', 'Hello from RN', 0, false);
+        });
+        client.connect();
+      })
+      .catch(function (err) {
+        console.log(err);
+      });
+
+    return () => {
+      client?.disconnect();
+    };
+  }, []);
   return (
     <SafeAreaView style={backgroundStyle}>
       <StatusBar
         barStyle={isDarkMode ? 'light-content' : 'dark-content'}
         backgroundColor={backgroundStyle.backgroundColor}
       />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
+      <TextInput
+        style={styles.input}
+        onChangeText={setInputValue}
+        value={inputValue}
+        placeholder="Type here..."
+      />
+      <Button title="Submit" onPress={submit} />
     </SafeAreaView>
   );
 }
@@ -112,6 +122,11 @@ const styles = StyleSheet.create({
   },
   highlight: {
     fontWeight: '700',
+  },
+  input: {
+    height: 40,
+    margin: 12,
+    borderWidth: 1,
   },
 });
 
